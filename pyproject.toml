@@ -3,8 +3,8 @@ requires      = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name            = "eyetrax"
-description     = "Webcam-based eye-tracking"
+name            = "glimpsh-eyetrax"
+description     = "Webcam-based eye-tracking with WebSocket server for glimpsh"
 readme          = "README.md"
 license         = { file = "LICENSE" }
 authors         = [{ name = "Chenkai Zhang (ck-zhang)" }]
@@ -29,7 +29,7 @@ classifiers = [
 ]
 
 [project.urls]
-homepage   = "https://github.com/dchrty/EyeTrax"
+homepage   = "https://github.com/dchrty/glimpsh-eyetrax"
 upstream   = "https://github.com/ck-zhang/EyeTrax"
 
 [project.scripts]
