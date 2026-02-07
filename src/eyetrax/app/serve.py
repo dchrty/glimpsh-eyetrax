@@ -1,5 +1,6 @@
 """WebSocket server for streaming gaze coordinates."""
 
+import atexit
 import asyncio
 import json
 import os
@@ -101,6 +102,21 @@ def parse_serve_args():
 clients = set()
 latest_gaze = {"x_px": None, "y_px": None}
 running = True
+camera_cap = None  # Global reference for cleanup
+
+
+def _cleanup_camera():
+    """Last-resort camera cleanup on exit."""
+    global camera_cap
+    if camera_cap is not None:
+        try:
+            camera_cap.release()
+            print("Camera released (atexit)")
+        except Exception:
+            pass
+
+
+atexit.register(_cleanup_camera)
 
 
 async def handle_client(websocket):
@@ -144,12 +160,16 @@ async def broadcast_gaze():
 
 def run_gaze_loop(gaze_estimator, smoother, camera_index):
     """Run the gaze capture loop (blocking, runs in thread)."""
-    global latest_gaze, running
+    global latest_gaze, running, camera_cap
 
-    with camera(camera_index) as cap:
-        for frame in iter_frames(cap):
-            if not running:
-                break
+    cap = cv2.VideoCapture(camera_index)
+    camera_cap = cap  # Store globally for cleanup
+
+    try:
+        while running and cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                continue
 
             features, blink_detected = gaze_estimator.extract_features(frame)
 
@@ -159,9 +179,10 @@ def run_gaze_loop(gaze_estimator, smoother, camera_index):
                 x_pred, y_pred = smoother.step(x, y)
                 latest_gaze["x_px"] = int(x_pred)
                 latest_gaze["y_px"] = int(y_pred)
-            else:
-                # Keep last known position during blinks
-                pass
+    finally:
+        cap.release()
+        camera_cap = None
+        print("Camera released")
 
 
 async def broadcast_loop():
@@ -213,23 +234,25 @@ def run_serve():
     else:
         smoother = NoSmoother()
 
-    # Handle shutdown
-    def shutdown(sig, frame):
-        global running
-        print("\nShutting down...")
-        running = False
-
-    signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
-
     # Start gaze capture in background thread
     import threading
     gaze_thread = threading.Thread(
         target=run_gaze_loop,
         args=(gaze_estimator, smoother, args.camera),
-        daemon=True,
     )
     gaze_thread.start()
+
+    # Handle shutdown
+    def shutdown(sig, frame):
+        global running, camera_cap
+        print("\nShutting down...")
+        running = False
+        # Force release camera if thread is stuck
+        if camera_cap is not None:
+            camera_cap.release()
+
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
 
     # Run WebSocket server
     async def main():
@@ -241,8 +264,12 @@ def run_serve():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        running = False
+        if camera_cap is not None:
+            camera_cap.release()
 
+    # Wait for gaze thread to finish
+    gaze_thread.join(timeout=2.0)
     print("Server stopped")
 
 
