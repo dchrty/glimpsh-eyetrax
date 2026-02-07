@@ -361,7 +361,7 @@ def run_serve():
     else:
         smoother = NoSmoother()
 
-    # Open camera on main thread (macOS AVFoundation requires main-thread init)
+    # Open camera on main thread before handing off to gaze loop
     import threading
     cap = cv2.VideoCapture(args.camera)
     if not cap.isOpened():
