@@ -102,7 +102,19 @@ pip install .
 
 ## Credits
 
-Based on [EyeTrax](https://github.com/ck-zhang/EyeTrax) by Chenkai Zhang.
+Based on [EyeTrax](https://github.com/ck-zhang/EyeTrax) by Chenkai Zhang. If you use this in your research, please cite the original:
+
+```bibtex
+@software{Zhang2025_EyeTrax,
+  author = {Chenkai Zhang},
+  title = {EyeTrax},
+  version = {0.2.2},
+  date = {2025-04-23},
+  url = {https://pypi.org/project/eyetrax/},
+  repository = {https://github.com/ck-zhang/EyeTrax},
+  doi = {10.5281/zenodo.17188537}
+}
+```
 
 ## License
 
