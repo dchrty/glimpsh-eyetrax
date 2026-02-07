@@ -362,7 +362,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mediapipe", specifier = ">=0.10,<=0.10.18" },
+    { name = "mediapipe", specifier = ">=0.10.9" },
     { name = "numpy", specifier = ">=1.22" },
     { name = "opencv-python", specifier = ">=4.5" },
     { name = "pyvirtualcam", specifier = ">=0.10" },
