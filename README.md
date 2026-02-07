@@ -1,144 +1,102 @@
-# EyeTrax
+# glimpsh-eyetrax
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17188537.svg)](https://doi.org/10.5281/zenodo.17188537)
-[![PyPI version](https://img.shields.io/pypi/v/eyetrax.svg)](https://pypi.org/project/eyetrax/)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)
-[![GitHub stars](https://img.shields.io/github/stars/ck-zhang/EyeTrax.svg?style=social)](https://github.com/ck-zhang/EyeTrax)
+Webcam-based eye tracking for [glimpsh](https://github.com/dchrty/glimpsh). Fork of [EyeTrax](https://github.com/ck-zhang/EyeTrax) with WebSocket server support.
 
-![Demo](https://github.com/user-attachments/assets/1b953a10-442f-4c4a-95e0-52a68f1488bc)
+## For glimpsh users
 
-EyeTrax is a Python library that provides **webcam-based eye tracking**.
-Extract facial features, train a model and predict gaze with an easy‑to‑use interface.
-
-## Features
-
-- Real‑time gaze estimation
-- Multiple calibration workflows
-- Optional filtering (Kalman / KDE)
-- Model persistence – save / load a trained `GazeEstimator`
-- Virtual-camera overlay that integrates with streaming software (e.g., OBS) via the bundled **`eyetrax-virtualcam`** CLI
-
-## Installation
-
-### From [PyPI](https://pypi.org/project/eyetrax/)
+You don't need to install this separately - it's included when you install glimpsh:
 
 ```bash
-pip install eyetrax
+git clone https://github.com/dchrty/glimpsh
+cd glimpsh
+uv sync --extra eyetrax
+uv run glimpsh
 ```
 
-### From source
+## Standalone Usage
+
+If you want to use eyetrax independently:
 
 ```bash
-git clone https://github.com/ck-zhang/eyetrax && cd eyetrax
-
-# editable install — pick one
-python -m pip install -e .
-pip install uv && uv sync
+git clone https://github.com/dchrty/glimpsh-eyetrax
+cd glimpsh-eyetrax
+uv sync
+uv run eyetrax --filter kalman
 ```
 
-## Demo
+This starts a WebSocket server on `ws://127.0.0.1:8001/` that streams gaze coordinates.
 
-The **EyeTrax** package provides two command‑line entry points
-
-| Command | Purpose |
-|---------|---------|
-| `eyetrax-demo` | Run an on‑screen gaze overlay demo |
-| `eyetrax-virtualcam` | Stream the overlay to a virtual webcam |
-
-Options
+### Options
 
 | Flag | Values | Default | Description |
 |------|--------|---------|-------------|
 | `--filter` | `kalman`, `kde`, `none` | `none` | Smoothing filter |
-| `--camera` | *int* | `0` | Physical webcam index |
-| `--calibration` | `9p`, `5p`, `lissajous` | `9p` | Calibration routine |
-| `--background` *(demo only)* | *path* | — | Background image |
-| `--confidence` *(KDE only)* | *0–1* | `0.5` | Contour probability |
+| `--grid` | `RxC` (e.g., `2x2`) | — | Grid mode with cell-based output |
+| `--camera` | int | `0` | Webcam index |
+| `--calibration` | `9p`, `5p`, `lissajous`, `grid` | `9p` | Calibration method |
+| `--recalibrate` | — | — | Force fresh calibration |
+| `--port` | int | `8001` | WebSocket port |
 
-## Quick Examples
-
-```bash
-eyetrax-demo --filter kalman
-```
+### Examples
 
 ```bash
-eyetrax-virtualcam --filter kde --calibration 5p
+# Kalman smoothing (recommended)
+uv run eyetrax --filter kalman
+
+# Grid mode for 2x2 terminal layout
+uv run eyetrax --filter kalman --grid 2x2
+
+# Force recalibration
+uv run eyetrax --filter kalman --recalibrate
+
+# Different camera
+uv run eyetrax --camera 1
 ```
-
-### WebSocket Server (for glimpsh)
-
-```bash
-eyetrax --filter kalman
-```
-
-This starts a WebSocket server on `ws://127.0.0.1:8001/` that streams normalized gaze coordinates. Used by [glimpsh](https://github.com/dchrty/glimpsh) for gaze-controlled terminal grids.
 
 ## Calibration
 
-Calibration data is automatically saved to `~/.local/share/eyetrax/model.pkl`.
+Calibration data is saved automatically:
+- Standard: `~/.local/share/eyetrax/model.pkl`
+- Grid mode: `~/.local/share/eyetrax/model_grid_2x2.pkl`
 
-To **recalibrate from scratch**, delete the saved model:
+To recalibrate, delete the model file:
 
 ```bash
-rm ~/.local/share/eyetrax/model.pkl
+rm ~/.local/share/eyetrax/model*.pkl
 ```
 
-The next time eyetrax runs, it will prompt for a fresh 9-point calibration.
+## WebSocket Protocol
 
-### Virtual camera demo
+The server sends JSON messages:
 
-https://github.com/user-attachments/assets/de4a0b63-8631-4c16-9901-9f83bc0bb766
-
-## Library Usage
-
-```python
-from eyetrax import GazeEstimator, run_9_point_calibration
-import cv2
-
-# Create estimator and calibrate
-estimator = GazeEstimator()
-run_9_point_calibration(estimator)
-
-# Save model
-estimator.save_model("gaze_model.pkl")
-
-# Load model
-estimator = GazeEstimator()
-estimator.load_model("gaze_model.pkl")
-
-cap = cv2.VideoCapture(0)
-
-while True:
-    # Extract features from frame
-    ret, frame = cap.read()
-    features, blink = estimator.extract_features(frame)
-
-    # Predict screen coordinates
-    if features is not None and not blink:
-        x, y = estimator.predict([features])[0]
-        print(f"Gaze: ({x:.0f}, {y:.0f})")
+```json
+{"type": "hello", "name": "EyeTrax", "version": "0.3.0"}
+{"x": 0.5, "y": 0.3}
+{"x": 0.5, "y": 0.3, "cell": {"row": 0, "col": 1}}
 ```
 
-## More
+- `x`, `y`: Normalized coordinates (0-1)
+- `cell`: Only present in grid mode, includes hysteresis
 
-If you find EyeTrax useful, consider starring the repo or contributing. If you use it in your research, please cite it. The project is available under the MIT license.
+## Other Commands
 
-**BibTeX**
-```bibtex
-@software{Zhang2025_EyeTrax,
-  author       = {Chenkai Zhang},
-  title        = {EyeTrax},
-  version      = {0.2.2},
-  date         = {2025-04-23},
-  url          = {https://pypi.org/project/eyetrax/},
-  repository   = {https://github.com/ck-zhang/EyeTrax},
-  doi          = {10.5281/zenodo.17188537},
-  keywords     = {eye tracking, computer vision}
-}
-```
+| Command | Purpose |
+|---------|---------|
+| `eyetrax` | WebSocket server for glimpsh |
+| `eyetrax-demo` | On-screen gaze overlay demo |
+| `eyetrax-virtualcam` | Stream overlay to virtual webcam |
 
-**APA style**
-```
-Zhang, C. (2025). EyeTrax (0.2.2) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.17188537
-```
+## Requirements
+
+- Linux or macOS
+- Python 3.10+
+- Webcam
+- OpenCV with GUI support
+
+## Credits
+
+Based on [EyeTrax](https://github.com/ck-zhang/EyeTrax) by Chenkai Zhang.
+
+## License
+
+MIT
