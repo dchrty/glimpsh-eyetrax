@@ -67,6 +67,7 @@ class KalmanSmoother(BaseSmoother):
         cv2.setWindowProperty(
             "Fine Tuning", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
         )
+        cv2.setWindowProperty("Fine Tuning", cv2.WND_PROP_TOPMOST, 1)  # Bring to front
 
         cap = cv2.VideoCapture(camera_index)
         gaze_positions = []

@@ -29,6 +29,7 @@ def wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, dur: int = 2) -> bo
     """
     cv2.namedWindow("Calibration", cv2.WND_PROP_FULLSCREEN)
     cv2.setWindowProperty("Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.setWindowProperty("Calibration", cv2.WND_PROP_TOPMOST, 1)  # Bring to front
     fd_start = None
     countdown = False
     while True:
