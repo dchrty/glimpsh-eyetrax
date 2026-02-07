@@ -347,7 +347,16 @@ def run_serve():
     if args.filter == "kalman":
         kalman = make_kalman()
         smoother = KalmanSmoother(kalman)
-        smoother.tune(gaze_estimator, camera_index=args.camera)
+        kalman_path = model_path.parent / (model_path.stem + "_kalman.npy")
+        if not args.recalibrate and kalman_path.exists():
+            noise_cov = np.load(kalman_path)
+            smoother.kf.measurementNoiseCov = noise_cov
+            print(f"Loaded Kalman params from {kalman_path}")
+        else:
+            smoother.tune(gaze_estimator, camera_index=args.camera)
+            if smoother.kf.measurementNoiseCov is not None:
+                np.save(kalman_path, smoother.kf.measurementNoiseCov)
+                print(f"Saved Kalman params to {kalman_path}")
     elif args.filter == "kde":
         smoother = KDESmoother(screen_width, screen_height, confidence=args.confidence)
     else:

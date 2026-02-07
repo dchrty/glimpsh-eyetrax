@@ -153,11 +153,13 @@ class KalmanSmoother(BaseSmoother):
             cv2.imshow("Kalman Calibration", canvas)
             if cv2.waitKey(1) == 27:
                 cap.release()
-                cv2.destroyWindow("Kalman Calibration")
+                cv2.destroyAllWindows()
+                cv2.waitKey(1)
                 return
 
         cap.release()
-        cv2.destroyWindow("Kalman Calibration")
+        cv2.destroyAllWindows()
+        cv2.waitKey(1)
 
         gaze_positions = np.array(gaze_positions)
         if gaze_positions.shape[0] < 2:
