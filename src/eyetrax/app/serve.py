@@ -131,6 +131,10 @@ async def broadcast_gaze():
     if not clients:
         return
 
+    # Only broadcast if we have valid gaze data
+    if latest_gaze["x_px"] is None or latest_gaze["y_px"] is None:
+        return
+
     message = json.dumps(latest_gaze)
     await asyncio.gather(
         *[client.send(message) for client in clients],
