@@ -37,7 +37,7 @@ class KalmanSmoother(BaseSmoother):
 
         return int(pred[0, 0]), int(pred[1, 0])
 
-    def tune(self, gaze_estimator, *, camera_index: int = 0):
+    def tune(self, gaze_estimator, *, camera_index: int = 0, cap=None):
         """
         Quick fine‑tuning pass to adjust Kalman filter's measurementNoiseCov
         """
@@ -70,10 +70,9 @@ class KalmanSmoother(BaseSmoother):
         initial_delay = 0.5
         data_collection_duration = 0.5
 
-        # Window already created by show_start_prompt, just ensure fullscreen
-        cv2.setWindowProperty("Kalman Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-        cap = cv2.VideoCapture(camera_index)
+        own_cap = cap is None
+        if own_cap:
+            cap = cv2.VideoCapture(camera_index)
         gaze_positions = []
 
         while points:
@@ -152,11 +151,13 @@ class KalmanSmoother(BaseSmoother):
 
             cv2.imshow("Kalman Calibration", canvas)
             if cv2.waitKey(1) == 27:
-                cap.release()
+                if own_cap:
+                    cap.release()
                 close_all_windows()
                 return
 
-        cap.release()
+        if own_cap:
+            cap.release()
         close_all_windows()
 
         gaze_positions = np.array(gaze_positions)

@@ -19,7 +19,7 @@ def close_all_windows() -> None:
 
 
 def make_fullscreen(window_name: str, sx: int, sy: int, sw: int, sh: int, canvas: np.ndarray) -> None:
-    """Make a window fullscreen in a cross-platform way."""
+    """Make a window fill the screen."""
     # Create resizable window
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
@@ -27,15 +27,16 @@ def make_fullscreen(window_name: str, sx: int, sy: int, sw: int, sh: int, canvas
     cv2.imshow(window_name, canvas)
     cv2.waitKey(1)
 
-    # Position and resize
+    # Position and resize to fill the screen
     cv2.moveWindow(window_name, sx, sy)
     cv2.resizeWindow(window_name, sw, sh)
     cv2.waitKey(1)
 
-    # Set fullscreen (try multiple times for stubborn WMs)
-    for _ in range(3):
-        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.waitKey(50)
+    if not IS_MACOS:
+        # On Linux, use true fullscreen mode
+        for _ in range(3):
+            cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            cv2.waitKey(50)
 
 
 def show_start_prompt(window_name: str = "Calibration") -> bool:
@@ -99,8 +100,10 @@ def wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, dur: int = 2, sx: i
     """
     # Window should already exist from show_start_prompt, but ensure it's set up
     cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
-    cv2.setWindowProperty("Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.moveWindow("Calibration", sx, sy)
+    cv2.resizeWindow("Calibration", sw, sh)
+    if not IS_MACOS:
+        cv2.setWindowProperty("Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     fd_start = None
     countdown = False
     while True:

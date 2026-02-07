@@ -313,6 +313,13 @@ def run_serve():
     # Initialize gaze estimator
     gaze_estimator = GazeEstimator(model_name=args.model)
 
+    # Open camera once on main thread and reuse for all steps
+    import threading
+    cap = cv2.VideoCapture(args.camera)
+    if not cap.isOpened():
+        print(f"Error: cannot open camera {args.camera}")
+        sys.exit(1)
+
     # Load or calibrate
     if not args.recalibrate and model_path.exists():
         gaze_estimator.load_model(model_path)
@@ -322,19 +329,19 @@ def run_serve():
             # Use grid calibration if --grid specified or --calibration grid
             if grid:
                 print(f"Starting GRID calibration for {grid[0]}x{grid[1]} layout...")
-                run_grid_calibration(gaze_estimator, grid[0], grid[1], camera_index=args.camera)
+                run_grid_calibration(gaze_estimator, grid[0], grid[1], camera_index=args.camera, cap=cap)
             else:
                 print("Warning: --calibration grid requires --grid RxC. Using 9p instead.")
-                run_9_point_calibration(gaze_estimator, camera_index=args.camera)
+                run_9_point_calibration(gaze_estimator, camera_index=args.camera, cap=cap)
         elif args.calibration == "9p":
             print("Starting 9-point calibration...")
-            run_9_point_calibration(gaze_estimator, camera_index=args.camera)
+            run_9_point_calibration(gaze_estimator, camera_index=args.camera, cap=cap)
         elif args.calibration == "5p":
             print("Starting 5-point calibration...")
-            run_5_point_calibration(gaze_estimator, camera_index=args.camera)
+            run_5_point_calibration(gaze_estimator, camera_index=args.camera, cap=cap)
         else:
             print("Starting lissajous calibration...")
-            run_lissajous_calibration(gaze_estimator, camera_index=args.camera)
+            run_lissajous_calibration(gaze_estimator, camera_index=args.camera, cap=cap)
 
         # Auto-save model
         model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -352,7 +359,7 @@ def run_serve():
             smoother.kf.measurementNoiseCov = noise_cov
             print(f"Loaded Kalman params from {kalman_path}")
         else:
-            smoother.tune(gaze_estimator, camera_index=args.camera)
+            smoother.tune(gaze_estimator, camera_index=args.camera, cap=cap)
             if smoother.kf.measurementNoiseCov is not None:
                 np.save(kalman_path, smoother.kf.measurementNoiseCov)
                 print(f"Saved Kalman params to {kalman_path}")
@@ -360,13 +367,6 @@ def run_serve():
         smoother = KDESmoother(screen_width, screen_height, confidence=args.confidence)
     else:
         smoother = NoSmoother()
-
-    # Open camera on main thread before handing off to gaze loop
-    import threading
-    cap = cv2.VideoCapture(args.camera)
-    if not cap.isOpened():
-        print(f"Error: cannot open camera {args.camera}")
-        sys.exit(1)
 
     # Start gaze capture in background thread
     gaze_thread = threading.Thread(

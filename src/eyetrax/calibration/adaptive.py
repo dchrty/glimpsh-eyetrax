@@ -7,7 +7,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from eyetrax.calibration.common import close_all_windows
+from eyetrax.calibration.common import IS_MACOS, close_all_windows
 from eyetrax.calibration.nine_point import run_9_point_calibration
 from eyetrax.gaze import GazeEstimator
 from eyetrax.utils.draw import draw_cursor
@@ -104,7 +104,8 @@ def run_adaptive_calibration(
     cv2.namedWindow("Adaptive Calibration", cv2.WINDOW_NORMAL)
     cv2.moveWindow("Adaptive Calibration", sx, sy)
     cv2.resizeWindow("Adaptive Calibration", sw, sh)
-    cv2.setWindowProperty("Adaptive Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    if not IS_MACOS:
+        cv2.setWindowProperty("Adaptive Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     all_feats, all_targs = [], []
 

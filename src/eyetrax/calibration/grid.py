@@ -12,7 +12,7 @@ from eyetrax.calibration.common import (
 from eyetrax.utils.screen import get_screen_geometry
 
 
-def run_grid_calibration(gaze_estimator, rows: int, cols: int, camera_index: int = 0):
+def run_grid_calibration(gaze_estimator, rows: int, cols: int, camera_index: int = 0, cap=None):
     """
     Grid-aware calibration that places calibration points at cell centers.
 
@@ -25,9 +25,12 @@ def run_grid_calibration(gaze_estimator, rows: int, cols: int, camera_index: int
         close_all_windows()
         return
 
-    cap = cv2.VideoCapture(camera_index)
+    own_cap = cap is None
+    if own_cap:
+        cap = cv2.VideoCapture(camera_index)
     if not wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, 2, sx, sy):
-        cap.release()
+        if own_cap:
+            cap.release()
         close_all_windows()
         return
 
@@ -77,7 +80,8 @@ def run_grid_calibration(gaze_estimator, rows: int, cols: int, camera_index: int
         pts.append(center)
 
     res = _pulse_and_capture(gaze_estimator, cap, pts, sw, sh)
-    cap.release()
+    if own_cap:
+        cap.release()
     close_all_windows()
 
     if res is None:

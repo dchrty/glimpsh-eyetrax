@@ -11,7 +11,7 @@ from eyetrax.calibration.common import (
 from eyetrax.utils.screen import get_screen_geometry
 
 
-def run_9_point_calibration(gaze_estimator, camera_index: int = 0):
+def run_9_point_calibration(gaze_estimator, camera_index: int = 0, cap=None):
     """
     Standard nine-point calibration
     """
@@ -22,9 +22,12 @@ def run_9_point_calibration(gaze_estimator, camera_index: int = 0):
         close_all_windows()
         return
 
-    cap = cv2.VideoCapture(camera_index)
+    own_cap = cap is None
+    if own_cap:
+        cap = cv2.VideoCapture(camera_index)
     if not wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, 2, sx, sy):
-        cap.release()
+        if own_cap:
+            cap.release()
         close_all_windows()
         return
 
@@ -42,7 +45,8 @@ def run_9_point_calibration(gaze_estimator, camera_index: int = 0):
     pts = compute_grid_points(order, sw, sh)
 
     res = _pulse_and_capture(gaze_estimator, cap, pts, sw, sh)
-    cap.release()
+    if own_cap:
+        cap.release()
     close_all_windows()
     if res is None:
         return
