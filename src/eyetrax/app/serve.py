@@ -238,11 +238,10 @@ async def broadcast_gaze():
     )
 
 
-def run_gaze_loop(gaze_estimator, smoother, camera_index, screen_width, screen_height):
+def run_gaze_loop(gaze_estimator, smoother, cap, screen_width, screen_height):
     """Run the gaze capture loop (blocking, runs in thread)."""
     global latest_gaze, running, camera_cap, grid_tracker
 
-    cap = cv2.VideoCapture(camera_index)
     camera_cap = cap  # Store globally for cleanup
 
     try:
@@ -362,11 +361,17 @@ def run_serve():
     else:
         smoother = NoSmoother()
 
-    # Start gaze capture in background thread
+    # Open camera on main thread (macOS AVFoundation requires main-thread init)
     import threading
+    cap = cv2.VideoCapture(args.camera)
+    if not cap.isOpened():
+        print(f"Error: cannot open camera {args.camera}")
+        sys.exit(1)
+
+    # Start gaze capture in background thread
     gaze_thread = threading.Thread(
         target=run_gaze_loop,
-        args=(gaze_estimator, smoother, args.camera, screen_width, screen_height),
+        args=(gaze_estimator, smoother, cap, screen_width, screen_height),
     )
     gaze_thread.start()
 
