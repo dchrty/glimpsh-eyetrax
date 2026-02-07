@@ -18,6 +18,7 @@ dependencies    = [
   "scipy>=1.10",
   "screeninfo>=0.8",
   "pyvirtualcam>=0.10",
+  "websockets>=10.0",
 ]
 
 classifiers = [
@@ -28,9 +29,12 @@ classifiers = [
 ]
 
 [project.urls]
-homepage = "https://github.com/ck-zhang/eyetrax"
+homepage   = "https://github.com/dchrty/EyeTrax"
+upstream   = "https://github.com/ck-zhang/EyeTrax"
 
 [project.scripts]
+eyetrax             = "eyetrax.app.serve:run_serve"
+eyetrax-serve       = "eyetrax.app.serve:run_serve"
 eyetrax-demo        = "eyetrax.app.demo:run_demo"
 eyetrax-virtualcam  = "eyetrax.app.virtualcam:run_virtualcam"
 eyetrax-build-model = "eyetrax.app.build_model:main"
