@@ -6,7 +6,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from eyetrax.calibration.common import show_start_prompt
+from eyetrax.calibration.common import close_all_windows, show_start_prompt
 from eyetrax.utils.screen import get_screen_geometry
 
 from . import make_kalman
@@ -43,7 +43,7 @@ class KalmanSmoother(BaseSmoother):
         """
         # Show start prompt
         if not show_start_prompt("Kalman Calibration"):
-            cv2.destroyAllWindows()
+            close_all_windows()
             return
 
         screen_x, screen_y, screen_width, screen_height = get_screen_geometry()
@@ -153,13 +153,11 @@ class KalmanSmoother(BaseSmoother):
             cv2.imshow("Kalman Calibration", canvas)
             if cv2.waitKey(1) == 27:
                 cap.release()
-                cv2.destroyAllWindows()
-                cv2.waitKey(1)
+                close_all_windows()
                 return
 
         cap.release()
-        cv2.destroyAllWindows()
-        cv2.waitKey(1)
+        close_all_windows()
 
         gaze_positions = np.array(gaze_positions)
         if gaze_positions.shape[0] < 2:

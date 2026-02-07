@@ -7,6 +7,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
+from eyetrax.calibration.common import close_all_windows
 from eyetrax.calibration.nine_point import run_9_point_calibration
 from eyetrax.gaze import GazeEstimator
 from eyetrax.utils.draw import draw_cursor
@@ -118,4 +119,4 @@ def run_adaptive_calibration(
         gaze_estimator.train(np.asarray(all_feats), np.asarray(all_targs))
 
     cap.release()
-    cv2.destroyWindow("Adaptive Calibration")
+    close_all_windows()

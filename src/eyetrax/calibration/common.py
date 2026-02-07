@@ -11,6 +11,13 @@ IS_MACOS = platform.system() == "Darwin"
 IS_LINUX = platform.system() == "Linux"
 
 
+def close_all_windows() -> None:
+    """Destroy all OpenCV windows and flush the event loop."""
+    cv2.destroyAllWindows()
+    for _ in range(5):
+        cv2.waitKey(100)
+
+
 def make_fullscreen(window_name: str, sx: int, sy: int, sw: int, sh: int, canvas: np.ndarray) -> None:
     """Make a window fullscreen in a cross-platform way."""
     # Create resizable window

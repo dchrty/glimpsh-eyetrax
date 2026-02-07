@@ -5,6 +5,7 @@ import numpy as np
 
 from eyetrax.calibration.common import (
     _pulse_and_capture,
+    close_all_windows,
     show_start_prompt,
     wait_for_face_and_countdown,
 )
@@ -21,13 +22,13 @@ def run_grid_calibration(gaze_estimator, rows: int, cols: int, camera_index: int
     sx, sy, sw, sh = get_screen_geometry()
 
     if not show_start_prompt("Calibration"):
-        cv2.destroyAllWindows()
+        close_all_windows()
         return
 
     cap = cv2.VideoCapture(camera_index)
     if not wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, 2, sx, sy):
         cap.release()
-        cv2.destroyAllWindows()
+        close_all_windows()
         return
 
     # Calculate cell centers
@@ -77,7 +78,7 @@ def run_grid_calibration(gaze_estimator, rows: int, cols: int, camera_index: int
 
     res = _pulse_and_capture(gaze_estimator, cap, pts, sw, sh)
     cap.release()
-    cv2.destroyAllWindows()
+    close_all_windows()
 
     if res is None:
         return

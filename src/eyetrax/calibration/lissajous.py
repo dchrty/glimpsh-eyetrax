@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from eyetrax.calibration.common import show_start_prompt, wait_for_face_and_countdown
+from eyetrax.calibration.common import close_all_windows, show_start_prompt, wait_for_face_and_countdown
 from eyetrax.utils.screen import get_screen_geometry
 
 
@@ -12,13 +12,13 @@ def run_lissajous_calibration(gaze_estimator, camera_index: int = 0):
     sx, sy, sw, sh = get_screen_geometry()
 
     if not show_start_prompt("Calibration"):
-        cv2.destroyAllWindows()
+        close_all_windows()
         return
 
     cap = cv2.VideoCapture(camera_index)
     if not wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, 2, sx, sy):
         cap.release()
-        cv2.destroyAllWindows()
+        close_all_windows()
         return
 
     A, B, a, b, d = sw * 0.4, sh * 0.4, 3, 2, 0
@@ -59,6 +59,6 @@ def run_lissajous_calibration(gaze_estimator, camera_index: int = 0):
             targs.append([x, y])
 
     cap.release()
-    cv2.destroyAllWindows()
+    close_all_windows()
     if feats:
         gaze_estimator.train(np.array(feats), np.array(targs))
