@@ -100,7 +100,7 @@ def parse_serve_args():
 
 # Global state for the gaze loop
 clients = set()
-latest_gaze = {"x_px": None, "y_px": None}
+latest_gaze = {"x": None, "y": None}  # Normalized coordinates (0-1)
 running = True
 camera_cap = None  # Global reference for cleanup
 
@@ -148,7 +148,7 @@ async def broadcast_gaze():
         return
 
     # Only broadcast if we have valid gaze data
-    if latest_gaze["x_px"] is None or latest_gaze["y_px"] is None:
+    if latest_gaze["x"] is None or latest_gaze["y"] is None:
         return
 
     message = json.dumps(latest_gaze)
@@ -158,7 +158,7 @@ async def broadcast_gaze():
     )
 
 
-def run_gaze_loop(gaze_estimator, smoother, camera_index):
+def run_gaze_loop(gaze_estimator, smoother, camera_index, screen_width, screen_height):
     """Run the gaze capture loop (blocking, runs in thread)."""
     global latest_gaze, running, camera_cap
 
@@ -177,8 +177,9 @@ def run_gaze_loop(gaze_estimator, smoother, camera_index):
                 gaze_point = gaze_estimator.predict(np.array([features]))[0]
                 x, y = map(int, gaze_point)
                 x_pred, y_pred = smoother.step(x, y)
-                latest_gaze["x_px"] = int(x_pred)
-                latest_gaze["y_px"] = int(y_pred)
+                # Output normalized coordinates (0-1) for screen-agnostic protocol
+                latest_gaze["x"] = round(x_pred / screen_width, 4)
+                latest_gaze["y"] = round(y_pred / screen_height, 4)
     finally:
         cap.release()
         camera_cap = None
@@ -238,7 +239,7 @@ def run_serve():
     import threading
     gaze_thread = threading.Thread(
         target=run_gaze_loop,
-        args=(gaze_estimator, smoother, args.camera),
+        args=(gaze_estimator, smoother, args.camera, screen_width, screen_height),
     )
     gaze_thread.start()
 
