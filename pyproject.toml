@@ -8,7 +8,7 @@ description     = "Webcam-based eye-tracking with WebSocket server for glimpsh"
 readme          = "README.md"
 license         = { file = "LICENSE" }
 authors         = [{ name = "Chenkai Zhang (ck-zhang)" }]
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"  # MediaPipe doesn't support 3.13+
 dynamic         = ["version"]
 dependencies    = [
   "opencv-python>=4.5",

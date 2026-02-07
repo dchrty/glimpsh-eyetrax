@@ -89,9 +89,16 @@ The server sends JSON messages:
 ## Requirements
 
 - Linux or macOS
-- Python 3.10+
+- **Python 3.9-3.12** (MediaPipe doesn't support 3.13+)
 - Webcam
 - OpenCV with GUI support
+
+**Note for pip users:** If you're on Python 3.13+, create a virtual environment with Python 3.12:
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install .
+```
 
 ## Credits
 
