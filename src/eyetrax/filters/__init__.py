@@ -8,8 +8,8 @@ def make_kalman(
     state_dim: int = 4,
     meas_dim: int = 2,
     dt: float = 1.0,
-    process_var: float = 50.0,
-    measurement_var: float = 0.2,
+    process_var: float = 1.0,
+    measurement_var: float = 100.0,
     init_state: np.ndarray | None = None,
 ) -> cv2.KalmanFilter:
     """

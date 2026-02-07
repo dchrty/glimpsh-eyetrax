@@ -4,19 +4,25 @@ import numpy as np
 from eyetrax.calibration.common import (
     _pulse_and_capture,
     compute_grid_points,
+    show_start_prompt,
     wait_for_face_and_countdown,
 )
-from eyetrax.utils.screen import get_screen_size
+from eyetrax.utils.screen import get_screen_geometry
 
 
 def run_9_point_calibration(gaze_estimator, camera_index: int = 0):
     """
     Standard nine-point calibration
     """
-    sw, sh = get_screen_size()
+    sx, sy, sw, sh = get_screen_geometry()
+
+    # Show start prompt and wait for space
+    if not show_start_prompt("Calibration"):
+        cv2.destroyAllWindows()
+        return
 
     cap = cv2.VideoCapture(camera_index)
-    if not wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, 2):
+    if not wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, 2, sx, sy):
         cap.release()
         cv2.destroyAllWindows()
         return

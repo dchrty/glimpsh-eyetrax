@@ -1,7 +1,70 @@
+import platform
 import time
 
 import cv2
 import numpy as np
+
+from eyetrax.utils.screen import get_screen_geometry
+
+# Detect platform
+IS_MACOS = platform.system() == "Darwin"
+IS_LINUX = platform.system() == "Linux"
+
+
+def make_fullscreen(window_name: str, sx: int, sy: int, sw: int, sh: int, canvas: np.ndarray) -> None:
+    """Make a window fullscreen in a cross-platform way."""
+    # Create resizable window
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+
+    # Show content first (required by some window managers)
+    cv2.imshow(window_name, canvas)
+    cv2.waitKey(1)
+
+    # Position and resize
+    cv2.moveWindow(window_name, sx, sy)
+    cv2.resizeWindow(window_name, sw, sh)
+    cv2.waitKey(1)
+
+    # Set fullscreen (try multiple times for stubborn WMs)
+    for _ in range(3):
+        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.waitKey(50)
+
+
+def show_start_prompt(window_name: str = "Calibration") -> bool:
+    """Show a 'press space to start' screen. Returns False if ESC pressed."""
+    sx, sy, sw, sh = get_screen_geometry()
+
+    # Create canvas
+    canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Different message based on window name
+    if "Kalman" in window_name:
+        text = "Press SPACE to start Kalman calibration"
+    else:
+        text = "Press SPACE to start calibration"
+
+    text_size, _ = cv2.getTextSize(text, font, 2, 3)
+    tx = (sw - text_size[0]) // 2
+    ty = (sh + text_size[1]) // 2
+    cv2.putText(canvas, text, (tx, ty), font, 2, (255, 255, 255), 3)
+
+    sub_text = "(Press ESC to cancel)"
+    sub_size, _ = cv2.getTextSize(sub_text, font, 1, 2)
+    cv2.putText(canvas, sub_text, ((sw - sub_size[0]) // 2, ty + 60), font, 1, (128, 128, 128), 2)
+
+    # Setup fullscreen window (pass canvas so it can show content first)
+    make_fullscreen(window_name, sx, sy, sw, sh, canvas)
+
+    while True:
+        cv2.imshow(window_name, canvas)
+        key = cv2.waitKey(100) & 0xFF
+        if key == 32:  # Space
+            return True
+        elif key == 27:  # ESC
+            return False
 
 
 def compute_grid_points(order, sw: int, sh: int, margin_ratio: float = 0.10):
@@ -23,13 +86,14 @@ def compute_grid_points(order, sw: int, sh: int, margin_ratio: float = 0.10):
     return [(mx + int(c * step_x), my + int(r * step_y)) for r, c in order]
 
 
-def wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, dur: int = 2) -> bool:
+def wait_for_face_and_countdown(cap, gaze_estimator, sw, sh, dur: int = 2, sx: int = 0, sy: int = 0) -> bool:
     """
     Waits for a face to be detected (not blinking), then shows a countdown ellipse
     """
-    cv2.namedWindow("Calibration", cv2.WND_PROP_FULLSCREEN)
+    # Window should already exist from show_start_prompt, but ensure it's set up
+    cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
     cv2.setWindowProperty("Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-    cv2.setWindowProperty("Calibration", cv2.WND_PROP_TOPMOST, 1)  # Bring to front
+    cv2.moveWindow("Calibration", sx, sy)
     fd_start = None
     countdown = False
     while True:

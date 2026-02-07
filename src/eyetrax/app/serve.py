@@ -14,6 +14,7 @@ import numpy as np
 from eyetrax.calibration import (
     run_5_point_calibration,
     run_9_point_calibration,
+    run_grid_calibration,
     run_lissajous_calibration,
 )
 from eyetrax.filters import KalmanSmoother, KDESmoother, NoSmoother, make_kalman
@@ -69,9 +70,16 @@ def parse_serve_args():
     )
     parser.add_argument(
         "--calibration",
-        choices=["9p", "5p", "lissajous"],
+        choices=["9p", "5p", "lissajous", "grid"],
         default="9p",
-        help="Calibration method if no saved model (default: 9p)",
+        help="Calibration method if no saved model (default: 9p, use 'grid' with --grid)",
+    )
+    parser.add_argument(
+        "--grid",
+        type=str,
+        default=None,
+        metavar="RxC",
+        help="Grid mode for terminal grids (e.g., '2x2'). Enables cell-based output with hysteresis.",
     )
     parser.add_argument(
         "--model",
@@ -98,11 +106,78 @@ def parse_serve_args():
     return parser.parse_args()
 
 
+def parse_grid(grid_str):
+    """Parse grid string like '2x2' into (rows, cols)."""
+    if not grid_str:
+        return None
+    try:
+        parts = grid_str.lower().split("x")
+        return int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        print(f"Invalid grid format: {grid_str}. Expected format: RxC (e.g., 2x2)")
+        sys.exit(1)
+
+
+class GridTracker:
+    """Tracks which grid cell the gaze is in with hysteresis."""
+
+    def __init__(self, rows: int, cols: int, hysteresis: float = 0.15):
+        self.rows = rows
+        self.cols = cols
+        self.hysteresis = hysteresis  # Extra margin needed to leave current cell
+        self.current_cell = None  # (row, col)
+
+    def update(self, x_norm: float, y_norm: float) -> tuple:
+        """
+        Update with normalized coordinates (0-1).
+        Returns (row, col) of current cell with hysteresis.
+        """
+        # Calculate which cell the raw gaze is in
+        col = int(x_norm * self.cols)
+        row = int(y_norm * self.rows)
+
+        # Clamp to valid range
+        col = max(0, min(col, self.cols - 1))
+        row = max(0, min(row, self.rows - 1))
+
+        new_cell = (row, col)
+
+        if self.current_cell is None:
+            self.current_cell = new_cell
+            return self.current_cell
+
+        # Calculate cell boundaries with hysteresis
+        curr_row, curr_col = self.current_cell
+        cell_width = 1.0 / self.cols
+        cell_height = 1.0 / self.rows
+
+        # Current cell boundaries (expanded by hysteresis)
+        left = curr_col * cell_width - self.hysteresis * cell_width
+        right = (curr_col + 1) * cell_width + self.hysteresis * cell_width
+        top = curr_row * cell_height - self.hysteresis * cell_height
+        bottom = (curr_row + 1) * cell_height + self.hysteresis * cell_height
+
+        # Only switch cell if gaze is clearly outside current cell
+        if x_norm < left or x_norm > right or y_norm < top or y_norm > bottom:
+            self.current_cell = new_cell
+
+        return self.current_cell
+
+    def get_cell_center(self, row: int, col: int) -> tuple:
+        """Get normalized center coordinates of a cell."""
+        cell_width = 1.0 / self.cols
+        cell_height = 1.0 / self.rows
+        x = (col + 0.5) * cell_width
+        y = (row + 0.5) * cell_height
+        return x, y
+
+
 # Global state for the gaze loop
 clients = set()
-latest_gaze = {"x": None, "y": None}  # Normalized coordinates (0-1)
+latest_gaze = {"x": None, "y": None, "cell": None}  # Normalized coords + optional cell
 running = True
 camera_cap = None  # Global reference for cleanup
+grid_tracker = None  # Optional GridTracker for grid mode
 
 
 def _cleanup_camera():
@@ -151,7 +226,12 @@ async def broadcast_gaze():
     if latest_gaze["x"] is None or latest_gaze["y"] is None:
         return
 
-    message = json.dumps(latest_gaze)
+    # Build message - include cell if in grid mode
+    msg = {"x": latest_gaze["x"], "y": latest_gaze["y"]}
+    if latest_gaze["cell"] is not None:
+        msg["cell"] = latest_gaze["cell"]
+
+    message = json.dumps(msg)
     await asyncio.gather(
         *[client.send(message) for client in clients],
         return_exceptions=True,
@@ -160,7 +240,7 @@ async def broadcast_gaze():
 
 def run_gaze_loop(gaze_estimator, smoother, camera_index, screen_width, screen_height):
     """Run the gaze capture loop (blocking, runs in thread)."""
-    global latest_gaze, running, camera_cap
+    global latest_gaze, running, camera_cap, grid_tracker
 
     cap = cv2.VideoCapture(camera_index)
     camera_cap = cap  # Store globally for cleanup
@@ -177,9 +257,24 @@ def run_gaze_loop(gaze_estimator, smoother, camera_index, screen_width, screen_h
                 gaze_point = gaze_estimator.predict(np.array([features]))[0]
                 x, y = map(int, gaze_point)
                 x_pred, y_pred = smoother.step(x, y)
+
                 # Output normalized coordinates (0-1) for screen-agnostic protocol
-                latest_gaze["x"] = round(x_pred / screen_width, 4)
-                latest_gaze["y"] = round(y_pred / screen_height, 4)
+                x_norm = round(x_pred / screen_width, 4)
+                y_norm = round(y_pred / screen_height, 4)
+
+                # Clamp to valid range
+                x_norm = max(0.0, min(1.0, x_norm))
+                y_norm = max(0.0, min(1.0, y_norm))
+
+                latest_gaze["x"] = x_norm
+                latest_gaze["y"] = y_norm
+
+                # If grid mode, also track cell with hysteresis
+                if grid_tracker is not None:
+                    row, col = grid_tracker.update(x_norm, y_norm)
+                    latest_gaze["cell"] = {"row": row, "col": col}
+                else:
+                    latest_gaze["cell"] = None
     finally:
         cap.release()
         camera_cap = None
@@ -196,12 +291,25 @@ async def broadcast_loop():
 
 def run_serve():
     """Main entry point for WebSocket server mode."""
-    global running
+    global running, grid_tracker
 
     args = parse_serve_args()
 
-    # Determine model path
-    model_path = Path(args.model_file) if args.model_file else get_default_model_path()
+    # Parse grid if specified
+    grid = parse_grid(args.grid)
+    if grid:
+        rows, cols = grid
+        grid_tracker = GridTracker(rows, cols)
+        print(f"Grid mode enabled: {rows}x{cols}")
+
+    # Determine model path - use grid-specific path if in grid mode
+    if args.model_file:
+        model_path = Path(args.model_file)
+    elif grid:
+        base_path = get_default_model_path()
+        model_path = base_path.parent / f"model_grid_{grid[0]}x{grid[1]}.pkl"
+    else:
+        model_path = get_default_model_path()
 
     # Initialize gaze estimator
     gaze_estimator = GazeEstimator(model_name=args.model)
@@ -211,12 +319,22 @@ def run_serve():
         gaze_estimator.load_model(model_path)
         print(f"Loaded calibration from {model_path}")
     else:
-        print("Starting calibration...")
-        if args.calibration == "9p":
+        if args.calibration == "grid" or (grid and args.calibration == "9p"):
+            # Use grid calibration if --grid specified or --calibration grid
+            if grid:
+                print(f"Starting GRID calibration for {grid[0]}x{grid[1]} layout...")
+                run_grid_calibration(gaze_estimator, grid[0], grid[1], camera_index=args.camera)
+            else:
+                print("Warning: --calibration grid requires --grid RxC. Using 9p instead.")
+                run_9_point_calibration(gaze_estimator, camera_index=args.camera)
+        elif args.calibration == "9p":
+            print("Starting 9-point calibration...")
             run_9_point_calibration(gaze_estimator, camera_index=args.camera)
         elif args.calibration == "5p":
+            print("Starting 5-point calibration...")
             run_5_point_calibration(gaze_estimator, camera_index=args.camera)
         else:
+            print("Starting lissajous calibration...")
             run_lissajous_calibration(gaze_estimator, camera_index=args.camera)
 
         # Auto-save model

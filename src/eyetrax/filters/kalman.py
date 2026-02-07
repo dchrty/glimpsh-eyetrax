@@ -6,7 +6,8 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from eyetrax.utils.screen import get_screen_size
+from eyetrax.calibration.common import show_start_prompt
+from eyetrax.utils.screen import get_screen_geometry
 
 from . import make_kalman
 from .base import BaseSmoother
@@ -40,8 +41,14 @@ class KalmanSmoother(BaseSmoother):
         """
         Quick fine‑tuning pass to adjust Kalman filter's measurementNoiseCov
         """
-        screen_width, screen_height = get_screen_size()
+        # Show start prompt
+        if not show_start_prompt("Kalman Calibration"):
+            cv2.destroyAllWindows()
+            return
 
+        screen_x, screen_y, screen_width, screen_height = get_screen_geometry()
+
+        # Points are relative to the window (0,0), not absolute screen coords
         points_tpl = [
             (screen_width // 2, screen_height // 4),
             (screen_width // 4, 3 * screen_height // 4),
@@ -63,11 +70,8 @@ class KalmanSmoother(BaseSmoother):
         initial_delay = 0.5
         data_collection_duration = 0.5
 
-        cv2.namedWindow("Fine Tuning", cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty(
-            "Fine Tuning", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
-        )
-        cv2.setWindowProperty("Fine Tuning", cv2.WND_PROP_TOPMOST, 1)  # Bring to front
+        # Window already created by show_start_prompt, just ensure fullscreen
+        cv2.setWindowProperty("Kalman Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
         cap = cv2.VideoCapture(camera_index)
         gaze_positions = []
@@ -146,14 +150,14 @@ class KalmanSmoother(BaseSmoother):
                             collected_gaze=[],
                         )
 
-            cv2.imshow("Fine Tuning", canvas)
+            cv2.imshow("Kalman Calibration", canvas)
             if cv2.waitKey(1) == 27:
                 cap.release()
-                cv2.destroyWindow("Fine Tuning")
+                cv2.destroyWindow("Kalman Calibration")
                 return
 
         cap.release()
-        cv2.destroyWindow("Fine Tuning")
+        cv2.destroyWindow("Kalman Calibration")
 
         gaze_positions = np.array(gaze_positions)
         if gaze_positions.shape[0] < 2:

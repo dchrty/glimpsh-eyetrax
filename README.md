@@ -66,6 +66,26 @@ eyetrax-demo --filter kalman
 eyetrax-virtualcam --filter kde --calibration 5p
 ```
 
+### WebSocket Server (for glimpsh)
+
+```bash
+eyetrax --filter kalman
+```
+
+This starts a WebSocket server on `ws://127.0.0.1:8001/` that streams normalized gaze coordinates. Used by [glimpsh](https://github.com/dchrty/glimpsh) for gaze-controlled terminal grids.
+
+## Calibration
+
+Calibration data is automatically saved to `~/.local/share/eyetrax/model.pkl`.
+
+To **recalibrate from scratch**, delete the saved model:
+
+```bash
+rm ~/.local/share/eyetrax/model.pkl
+```
+
+The next time eyetrax runs, it will prompt for a fresh 9-point calibration.
+
 ### Virtual camera demo
 
 https://github.com/user-attachments/assets/de4a0b63-8631-4c16-9901-9f83bc0bb766
